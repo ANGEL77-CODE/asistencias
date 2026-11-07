@@ -1,0 +1,2220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colegio San Gabriel - Sistema de Asistencia Escolar</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- jsPDF y AutoTable CDN para generación de PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#0B132B',
+                            darker: '#060B1E',
+                            blue: '#1C2541',
+                            accent: '#3A506B',
+                            cyan: '#4CC9F0',
+                            purple: '#4361EE',
+                            green: '#10B981',
+                            red: '#EF4444',
+                            yellow: '#F59E0B'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F3F4F6; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col" id="app-body">
+
+    <div id="app-container" class="flex-1 flex flex-col">
+        <!-- Contenido principal inyectado dinámicamente -->
+    </div>
+
+    <!-- Modal: Nuevo Alumno -->
+    <div id="student-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-6 transform transition-all">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <i class="fa-solid fa-user-plus text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base">Registrar Nuevo Alumno</h3>
+                        <p class="text-xs text-slate-500">Añade un estudiante al curso actual</p>
+                    </div>
+                </div>
+                <button onclick="closeStudentModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <form id="student-form" onsubmit="handleCreateStudent(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nombre y Apellidos</label>
+                    <input type="text" id="new-student-name" required placeholder="Ej: Mendoza Quispe, Carlos" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Curso Asignado</label>
+                    <select id="new-student-course" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        <!-- Opciones dinámicas -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">URL de la Foto (Opcional)</label>
+                    <input type="url" id="new-student-photo" placeholder="https://images.unsplash.com/..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                </div>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeStudentModal()" class="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 transition-all">Guardar Alumno</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Crear o Editar Curso -->
+    <div id="course-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-6 transform transition-all">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <i id="course-modal-icon" class="fa-solid fa-folder-plus text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 id="course-modal-title" class="font-bold text-slate-800 text-base">Crear Nuevo Curso o Grado</h3>
+                        <p class="text-xs text-slate-500">Configura la materia y sección escolar</p>
+                    </div>
+                </div>
+                <button onclick="closeCourseModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <form id="course-form" onsubmit="handleSaveCourse(event)" class="space-y-4">
+                <input type="hidden" id="edit-course-index" value="-1">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Nombre de la Asignatura</label>
+                    <input type="text" id="new-course-name" required placeholder="Ej: Física Elemental" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Grado / Nivel</label>
+                        <select id="new-course-grade" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                            <option value="1°">1° Grado</option>
+                            <option value="2°">2° Grado</option>
+                            <option value="3°">3° Grado</option>
+                            <option value="4°">4° Grado</option>
+                            <option value="5°">5° Grado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Sección</label>
+                        <select id="new-course-section" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                            <option value="A">Sección A</option>
+                            <option value="B">Sección B</option>
+                            <option value="C">Sección C</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeCourseModal()" class="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">Cancelar</button>
+                    <button type="submit" id="course-submit-btn" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 transition-all">Guardar Curso</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Detalle de Día en Calendario -->
+    <div id="calendar-day-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl space-y-6 transform transition-all relative">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <i class="fa-solid fa-calendar-day text-sm"></i>
+                    </div>
+                    <div>
+                        <h3 id="modal-day-title" class="font-bold text-slate-800 text-base">Asistencia del Día</h3>
+                        <p id="modal-day-subtitle" class="text-xs text-slate-500">Curso y fecha</p>
+                    </div>
+                </div>
+                <button onclick="closeCalendarDayModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <div id="modal-day-content" class="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                <!-- Inyectado dinámicamente -->
+            </div>
+
+            <div class="flex items-center justify-end pt-4 border-t border-slate-100">
+                <button onclick="closeCalendarDayModal()" class="px-6 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-all">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Visualizador de Reporte PDF en Pantalla (Multimes) -->
+    <div id="pdf-view-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-5xl w-full shadow-2xl space-y-6 transform transition-all max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4 shrink-0">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                        <i class="fa-solid fa-file-pdf text-base"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base">Vista Previa de Reporte - Asistencia</h3>
+                        <p class="text-xs text-slate-500" id="pdf-modal-subtitle">Selecciona los meses y genera la vista</p>
+                    </div>
+                </div>
+                <button onclick="closeMultiMonthPdfModal()" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3 shrink-0">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span class="text-xs font-bold text-slate-700">Seleccionar Meses a Incluir:</span>
+                    <span class="text-[11px] text-slate-500">Curso: <strong id="pdf-selected-course-label" class="text-blue-600"></strong></span>
+                </div>
+                <div class="flex flex-wrap gap-2 text-xs" id="pdf-months-checkboxes">
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="03" class="pdf-month-cb rounded text-blue-600 focus:ring-0" checked>
+                        <span>Marzo</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="04" class="pdf-month-cb rounded text-blue-600 focus:ring-0" checked>
+                        <span>Abril</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="05" class="pdf-month-cb rounded text-blue-600 focus:ring-0" checked>
+                        <span>Mayo</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="06" class="pdf-month-cb rounded text-blue-600 focus:ring-0" checked>
+                        <span>Junio</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="07" class="pdf-month-cb rounded text-blue-600 focus:ring-0">
+                        <span>Julio</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="08" class="pdf-month-cb rounded text-blue-600 focus:ring-0">
+                        <span>Agosto</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="09" class="pdf-month-cb rounded text-blue-600 focus:ring-0">
+                        <span>Septiembre</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="10" class="pdf-month-cb rounded text-blue-600 focus:ring-0">
+                        <span>Octubre</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="11" class="pdf-month-cb rounded text-blue-600 focus:ring-0">
+                        <span>Noviembre</span>
+                    </label>
+                    <label class="inline-flex items-center space-x-1.5 bg-white px-3 py-1.5 rounded-xl border border-slate-200 font-semibold text-slate-700 cursor-pointer hover:bg-slate-100">
+                        <input type="checkbox" value="12" class="pdf-month-cb rounded text-blue-600 focus:ring-0">
+                        <span>Diciembre</span>
+                    </label>
+                </div>
+                <div class="flex justify-end pt-1">
+                    <button onclick="renderMultiMonthPreviewTable()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm">
+                        <i class="fa-solid fa-arrows-rotate mr-1"></i> Visualizar Reporte
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto bg-slate-200/60 p-4 md:p-6 rounded-2xl border border-slate-200 space-y-4">
+                <div id="pdf-document-paper" class="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-slate-300 min-w-[700px] text-slate-800 font-sans space-y-6">
+                    <!-- Dinámico -->
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-slate-100 shrink-0">
+                <span class="text-xs text-slate-400">Leyenda: <strong class="text-emerald-600">P</strong> = Presente | <strong class="text-red-600">F</strong> = Ausente | <strong class="text-amber-600">T</strong> = Tardanza</span>
+                <button onclick="closeMultiMonthPdfModal()" class="px-6 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-all">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lógica JavaScript -->
+    <script>
+        let currentView = 'login'; // 'login', 'pin_setup', 'pin_login', 'dashboard'
+        let currentSection = 'inicio'; 
+        let selectedCourse = 'Matemáticas - 1° A'; 
+
+        function getFormattedLocalDate() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getFormattedLocalMonth() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            return `${year}-${month}`;
+        }
+
+        let attendanceDate = getFormattedLocalDate();
+        let pdfSelectedMonth = getFormattedLocalMonth();
+        let mobileMenuOpen = false;
+
+        let calendarYear = new Date().getFullYear();
+        let calendarMonth = new Date().getMonth();
+
+        const defaultTeachersData = [
+            { id: 1, name: "Prof. Laura Fernández", role: "Docente Principal", email: "l.fernandez@colegiosangabriel.edu.pe", photo: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200" }
+        ];
+
+        const defaultCoursesData = [
+            "Matemáticas - 1° A",
+            "Comunicación - 2° B",
+            "Ciencias Naturales - 3° A",
+            "Historia - 4° B",
+            "Inglés - 5° A"
+        ];
+
+        const defaultStudentsData = [
+            { id: 1, name: "García López, Andrea", course: "Matemáticas - 1° A", photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100" },
+            { id: 2, name: "Torres Silva, Diego", course: "Matemáticas - 1° A", photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100" },
+            { id: 3, name: "Ramírez Flores, Valeria", course: "Matemáticas - 1° A", photo: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=100" },
+            { id: 4, name: "Castro Mendoza, Andrés", course: "Matemáticas - 1° A", photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100" },
+            { id: 5, name: "Vásquez Rojas, Camila", course: "Matemáticas - 1° A", photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100" },
+            { id: 6, name: "Herrera Díaz, Sebastián", course: "Matemáticas - 1° A", photo: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=100" },
+            { id: 7, name: "López Quispe, Daniela", course: "Matemáticas - 1° A", photo: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=100" },
+            { id: 8, name: "Fernández Cruz, Mateo", course: "Matemáticas - 1° A", photo: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100" },
+            { id: 9, name: "Pérez Gómez, Sofia", course: "Comunicación - 2° B", photo: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=100" },
+            { id: 10, name: "Morales Ruiz, Lucas", course: "Comunicación - 2° B", photo: "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&q=80&w=100" },
+            { id: 11, name: "Rojas Paredes, Martina", course: "Ciencias Naturales - 3° A", photo: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&q=80&w=100" },
+            { id: 12, name: "Salazar Vega, Joaquín", course: "Historia - 4° B", photo: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=100" }
+        ];
+
+        function loadFromLocalStorage(key, defaultValue) {
+            try {
+                const stored = localStorage.getItem(key);
+                return stored ? JSON.parse(stored) : defaultValue;
+            } catch (e) {
+                console.error("Error leyendo localStorage:", e);
+                return defaultValue;
+            }
+        }
+
+        function saveToLocalStorage(key, value) {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (e) {
+                console.error("Error guardando en localStorage:", e);
+            }
+        }
+
+        let teachersData = loadFromLocalStorage('sg_teachersData', defaultTeachersData);
+        let coursesData = loadFromLocalStorage('sg_coursesData', defaultCoursesData);
+        let studentsData = loadFromLocalStorage('sg_studentsData', defaultStudentsData);
+        let attendanceHistoryRecords = loadFromLocalStorage('sg_attendanceHistoryRecords', {});
+
+        // Variables de Autenticación PIN
+        let teacherPin = localStorage.getItem('sg_teacherPin') || null;
+        let recoveryQuestion = localStorage.getItem('sg_recoveryQ') || null;
+        let recoveryAnswer = localStorage.getItem('sg_recoveryA') || null;
+        let enteredPinBuffer = "";
+
+        let activeAttendanceList = [];
+        let searchQuery = '';
+
+        function renderApp() {
+            const container = document.getElementById('app-container');
+            if (currentView === 'login') {
+                container.innerHTML = renderLoginScreenHTML();
+            } else if (currentView === 'pin_setup') {
+                container.innerHTML = renderPinSetupScreenHTML();
+            } else if (currentView === 'pin_login') {
+                container.innerHTML = renderPinLoginScreenHTML();
+            } else {
+                container.innerHTML = renderDashboardLayoutHTML();
+                attachDashboardEvents();
+            }
+        }
+
+        function renderLoginScreenHTML() {
+            const teacher = teachersData[0];
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-[#0B132B] via-[#1C2541] to-[#060B1E] flex flex-col items-center justify-center p-6 text-white relative overflow-hidden">
+                    <div class="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <div class="max-w-md w-full text-center space-y-8 z-10">
+                        <div class="space-y-3">
+                            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-500 mx-auto flex items-center justify-center shadow-2xl shadow-blue-500/40 border border-blue-400/30">
+                                <i class="fa-solid fa-graduation-cap text-white text-3xl"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-2xl font-black tracking-tight">Colegio San Gabriel</h1>
+                                <p class="text-xs text-blue-200 mt-1 uppercase tracking-widest font-semibold">Sistema de Asistencia Escolar</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-6 shadow-2xl space-y-6 hover:bg-white/15 transition-all group">
+                            <div class="text-center space-y-3">
+                                <img src="${teacher.photo}" alt="${teacher.name}" class="w-24 h-24 rounded-full object-cover mx-auto border-4 border-blue-400 shadow-xl group-hover:scale-105 transition-transform">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">${teacher.name}</h3>
+                                    <p class="text-xs text-blue-200">${teacher.role}</p>
+                                    <p class="text-[11px] text-slate-400 mt-1">${teacher.email}</p>
+                                </div>
+                            </div>
+
+                            <button onclick="handleInitialLoginClick()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-blue-600/40 flex items-center justify-center space-x-3 transition-all transform active:scale-95 cursor-pointer">
+                                <span>Ingresar al Sistema</span>
+                                <i class="fa-solid fa-arrow-right text-xs"></i>
+                            </button>
+                        </div>
+
+                        <p class="text-xs text-slate-400">© 2026 Colegio San Gabriel — Plataforma Docente Segura</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleInitialLoginClick() {
+            if (!teacherPin) {
+                currentView = 'pin_setup';
+            } else {
+                enteredPinBuffer = "";
+                currentView = 'pin_login';
+            }
+            renderApp();
+        }
+
+        function renderPinSetupScreenHTML() {
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-[#0B132B] via-[#1C2541] to-[#060B1E] flex flex-col items-center justify-center p-6 text-white">
+                    <div class="max-w-md w-full bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-6 md:p-8 shadow-2xl space-y-6">
+                        <div class="text-center space-y-2">
+                            <div class="w-14 h-14 bg-indigo-600 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg">
+                                <i class="fa-solid fa-shield-halved text-xl"></i>
+                            </div>
+                            <h2 class="text-lg font-black">Crear PIN de Seguridad</h2>
+                            <p class="text-xs text-blue-200">Para evitar que alumnos modifiquen las asistencias, define un PIN de 4 dígitos y una pregunta secreta.</p>
+                        </div>
+
+                        <form onsubmit="saveNewPinAndSetup(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-300 mb-1">Nuevo PIN (4 Números)</label>
+                                <input type="password" id="setup-pin" maxlength="4" pattern="[0-9]{4}" required placeholder="Ej: 1234" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white font-bold text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-300 mb-1">Pregunta de Recuperación</label>
+                                <select id="setup-question" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="¿Cuál es el nombre de tu animal favorito?">¿Cuál es el nombre de tu animal favorito?</option>
+                                    <option value="¿En qué ciudad naciste?">¿En qué ciudad naciste?</option>
+                                    <option value="¿Cuál es tu color favorito?">¿Cuál es tu color favorito?</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-300 mb-1">Respuesta Secreta</label>
+                                <input type="text" id="setup-answer" required placeholder="Ej: Luna" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg text-xs transition-all mt-2">
+                                Guardar Seguridad y Entrar
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function saveNewPinAndSetup(e) {
+            e.preventDefault();
+            const pin = document.getElementById('setup-pin').value;
+            const q = document.getElementById('setup-question').value;
+            const a = document.getElementById('setup-answer').value.trim().toLowerCase();
+
+            if (pin.length !== 4 || isNaN(pin)) {
+                alertBox('El PIN debe ser exactamente de 4 números.');
+                return;
+            }
+
+            teacherPin = pin;
+            recoveryQuestion = q;
+            recoveryAnswer = a;
+
+            localStorage.setItem('sg_teacherPin', teacherPin);
+            localStorage.setItem('sg_recoveryQ', recoveryQuestion);
+            localStorage.setItem('sg_recoveryA', recoveryAnswer);
+
+            alertBox('¡PIN de seguridad configurado con éxito!');
+            enteredPinBuffer = "";
+            currentView = 'pin_login';
+            renderApp();
+        }
+
+        function renderPinLoginScreenHTML() {
+            let dotsHtml = '';
+            for (let i = 0; i < 4; i++) {
+                if (i < enteredPinBuffer.length) {
+                    dotsHtml += `<div class="w-4 h-4 rounded-full bg-blue-500 shadow-md transform scale-110 transition-all"></div>`;
+                } else {
+                    dotsHtml += `<div class="w-4 h-4 rounded-full bg-slate-700 border border-slate-600"></div>`;
+                }
+            }
+
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-[#0B132B] via-[#1C2541] to-[#060B1E] flex flex-col items-center justify-center p-6 text-white select-none">
+                    <div class="max-w-xs w-full bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-6 shadow-2xl space-y-6 text-center">
+                        <div class="space-y-2">
+                            <div class="w-12 h-12 bg-blue-600 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg">
+                                <i class="fa-solid fa-lock text-base"></i>
+                            </div>
+                            <h3 class="font-bold text-sm">Ingrese PIN Docente</h3>
+                            <p class="text-[11px] text-blue-200">Seguridad contra modificaciones</p>
+                        </div>
+
+                        <div class="flex items-center justify-center space-x-3 py-2">
+                            ${dotsHtml}
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-3">
+                            <button onclick="pressPinKey('1')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">1</button>
+                            <button onclick="pressPinKey('2')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">2</button>
+                            <button onclick="pressPinKey('3')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">3</button>
+                            <button onclick="pressPinKey('4')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">4</button>
+                            <button onclick="pressPinKey('5')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">5</button>
+                            <button onclick="pressPinKey('6')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">6</button>
+                            <button onclick="pressPinKey('7')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">7</button>
+                            <button onclick="pressPinKey('8')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">8</button>
+                            <button onclick="pressPinKey('9')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">9</button>
+                            <button onclick="clearPinKey()" class="h-12 rounded-2xl bg-red-950/40 text-red-400 hover:bg-red-900/50 font-bold text-xs shadow border border-red-900/30">Borrar</button>
+                            <button onclick="pressPinKey('0')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 font-black text-base shadow border border-slate-700/60 active:scale-95 transition-all">0</button>
+                            <button onclick="backToLoginWelcome()" class="h-12 rounded-2xl bg-slate-900 text-slate-400 hover:bg-slate-800 font-bold text-[10px] shadow border border-slate-700">Salir</button>
+                        </div>
+
+                        <div class="pt-1">
+                            <button onclick="openRecoveryModal()" class="text-[11px] text-blue-300 hover:underline font-medium">¿Olvidaste tu PIN?</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function pressPinKey(num) {
+            if (enteredPinBuffer.length < 4) {
+                enteredPinBuffer += num;
+                renderApp();
+
+                if (enteredPinBuffer.length === 4) {
+                    setTimeout(() => {
+                        if (enteredPinBuffer === teacherPin) {
+                            currentView = 'dashboard';
+                            currentSection = 'inicio';
+                            loadAttendanceForCurrentSelection();
+                            renderApp();
+                            alertBox('¡Bienvenida al sistema, Prof. Laura!');
+                        } else {
+                            alertBox('PIN incorrecto. Inténtalo de nuevo.');
+                            enteredPinBuffer = "";
+                            renderApp();
+                        }
+                    }, 250);
+                }
+            }
+        }
+
+        function clearPinKey() {
+            enteredPinBuffer = "";
+            renderApp();
+        }
+
+        function backToLoginWelcome() {
+            currentView = 'login';
+            renderApp();
+        }
+
+        function openRecoveryModal() {
+            const answer = prompt(`Pregunta de seguridad:\n${recoveryQuestion}\n\nIngresa tu respuesta secreta:`);
+            if (answer !== null) {
+                if (answer.trim().toLowerCase() === recoveryAnswer) {
+                    const newPin = prompt('¡Respuesta correcta!\nIngresa tu nuevo PIN de 4 números:');
+                    if (newPin && newPin.length === 4 && !isNaN(newPin)) {
+                        teacherPin = newPin;
+                        localStorage.setItem('sg_teacherPin', teacherPin);
+                        alertBox('¡PIN restablecido con éxito!');
+                        enteredPinBuffer = "";
+                        currentView = 'pin_login';
+                        renderApp();
+                    } else {
+                        alertBox('PIN inválido. Operación cancelada.');
+                    }
+                } else {
+                    alertBox('Respuesta secreta incorrecta.');
+                }
+            }
+        }
+
+        function logout() {
+            currentView = 'pin_login';
+            enteredPinBuffer = "";
+            renderApp();
+        }
+
+        function toggleMobileMenu() {
+            mobileMenuOpen = !mobileMenuOpen;
+            const drawer = document.getElementById('mobile-sidebar-drawer');
+            const backdrop = document.getElementById('mobile-sidebar-backdrop');
+            if (mobileMenuOpen) {
+                drawer.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            } else {
+                drawer.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        function renderDashboardLayoutHTML() {
+            const navLinksHTML = `
+                <a href="#" data-section="inicio" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${currentSection==='inicio'?'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30':'text-slate-300 hover:bg-slate-800/60 hover:text-white'}">
+                    <i class="fa-solid fa-house w-5 text-center"></i>
+                    <span>Inicio</span>
+                </a>
+                <a href="#" data-section="cursos" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${currentSection==='cursos'?'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30':'text-slate-300 hover:bg-slate-800/60 hover:text-white'}">
+                    <i class="fa-solid fa-book-open-reader w-5 text-center"></i>
+                    <span>Gestión de Cursos</span>
+                </a>
+                <a href="#" data-section="asistencia" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${currentSection==='asistencia'?'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30':'text-slate-300 hover:bg-slate-800/60 hover:text-white'}">
+                    <i class="fa-solid fa-fingerprint w-5 text-center"></i>
+                    <span>Tomar Asistencia</span>
+                </a>
+                <a href="#" data-section="reportes" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${currentSection==='reportes'?'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30':'text-slate-300 hover:bg-slate-800/60 hover:text-white'}">
+                    <i class="fa-solid fa-chart-column w-5 text-center"></i>
+                    <span>Reportes & PDF</span>
+                </a>
+                <a href="#" data-section="calendario" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${currentSection==='calendario'?'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30':'text-slate-300 hover:bg-slate-800/60 hover:text-white'}">
+                    <i class="fa-solid fa-calendar-days w-5 text-center"></i>
+                    <span>Calendario Escolar</span>
+                </a>
+                <a href="#" data-section="configuracion" class="nav-item flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-sm transition-all ${currentSection==='configuracion'?'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/30':'text-slate-300 hover:bg-slate-800/60 hover:text-white'}">
+                    <i class="fa-solid fa-gear w-5 text-center"></i>
+                    <span>Configuración</span>
+                </a>
+            `;
+
+            return `
+                <div class="min-h-screen flex flex-col md:flex-row w-full relative">
+                    <div id="mobile-sidebar-backdrop" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 md:hidden ${mobileMenuOpen ? '' : 'hidden'}"></div>
+
+                    <aside id="mobile-sidebar-drawer" class="fixed inset-y-0 left-0 w-72 bg-[#0A1026] text-white flex flex-col justify-between shrink-0 shadow-2xl z-40 transform -translate-x-full md:translate-x-0 md:static md:w-64 transition-transform duration-300">
+                        <div>
+                            <div class="p-5 flex items-center justify-between border-b border-slate-800/80">
+                                <div class="flex items-center space-x-3 cursor-pointer" onclick="logout()">
+                                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                                        <i class="fa-solid fa-graduation-cap text-white text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h1 class="font-bold text-base tracking-tight leading-tight">Colegio San Gabriel</h1>
+                                        <p class="text-xs text-slate-400">Bloquear Sistema</p>
+                                    </div>
+                                </div>
+                                <button onclick="toggleMobileMenu()" class="md:hidden text-slate-400 hover:text-white p-2">
+                                    <i class="fa-solid fa-xmark text-lg"></i>
+                                </button>
+                            </div>
+
+                            <nav class="p-4 space-y-1.5" id="sidebar-nav">
+                                ${navLinksHTML}
+                            </nav>
+                        </div>
+
+                        <div class="p-4 m-3 rounded-2xl bg-gradient-to-br from-indigo-950/80 to-blue-900/40 border border-indigo-500/20">
+                            <div class="flex items-center space-x-3">
+                                <img src="${teachersData[0].photo}" alt="Prof. Laura" class="w-9 h-9 rounded-full object-cover border border-blue-400">
+                                <div class="overflow-hidden">
+                                    <h4 class="text-xs font-bold truncate text-white">${teachersData[0].name}</h4>
+                                    <p class="text-[10px] text-slate-400">Docente Titular</p>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+                        <header class="bg-white border-b border-slate-200 px-4 md:px-6 py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-sm gap-3">
+                            <div class="flex items-center space-x-3 flex-1 max-w-md">
+                                <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors">
+                                    <i class="fa-solid fa-bars text-lg"></i>
+                                </button>
+                                <div class="relative w-full">
+                                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                                        <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                                    </span>
+                                    <input type="text" id="global-search" value="${searchQuery}" placeholder="Buscar alumno, grado..." class="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all">
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-2 md:space-x-4">
+                                <button onclick="openCourseModalForCreate()" title="Nuevo Curso" class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition-all">
+                                    <i class="fa-solid fa-folder-plus text-xs"></i>
+                                    <span class="hidden sm:inline">Curso</span>
+                                </button>
+                                <button onclick="openStudentModal()" title="Nuevo Alumno" class="flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all">
+                                    <i class="fa-solid fa-user-plus text-xs"></i>
+                                    <span class="hidden sm:inline">Alumno</span>
+                                </button>
+                                <button onclick="logout()" title="Bloquear Sistema (PIN)" class="p-2 rounded-xl text-slate-600 hover:bg-amber-50 hover:text-amber-600 transition-colors">
+                                    <i class="fa-solid fa-lock text-base md:text-lg"></i>
+                                </button>
+                            </div>
+                        </header>
+
+                        <main class="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto w-full pb-24" id="section-content-area">
+                            ${renderActiveSectionContent()}
+                        </main>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderActiveSectionContent() {
+            if (currentSection === 'inicio') {
+                return renderInicioSectionHTML();
+            } else if (currentSection === 'cursos') {
+                return renderCursosSectionHTML();
+            } else if (currentSection === 'asistencia') {
+                return renderAsistenciaSectionHTML();
+            } else if (currentSection === 'reportes') {
+                return renderReportesSectionHTML();
+            } else if (currentSection === 'calendario') {
+                return renderCalendarioSectionHTML();
+            } else if (currentSection === 'configuracion') {
+                return renderConfiguracionSectionHTML();
+            }
+        }
+
+        function renderInicioSectionHTML() {
+            const stats = getStats();
+            return `
+                <div class="space-y-6">
+                    <div class="relative bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-900 rounded-3xl p-6 md:p-8 text-white shadow-xl overflow-hidden flex flex-col md:flex-row justify-between items-center">
+                        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                        <div class="space-y-3 z-10 max-w-lg">
+                            <div class="inline-flex items-center space-x-2 bg-white/25 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span>Colegio San Gabriel</span>
+                            </div>
+                            <h2 class="text-2xl md:text-3xl font-extrabold tracking-tight">¡Hola, Prof. Laura!</h2>
+                            <p class="text-xs md:text-sm text-blue-100 leading-relaxed">Selecciona un curso abajo para tomar asistencia o exporta el reporte del mes en PDF.</p>
+                        </div>
+                        <div class="mt-6 md:mt-0 z-10 w-full md:w-auto flex flex-col sm:flex-row gap-3">
+                            <button onclick="switchSection('reportes')" class="w-full md:w-auto bg-red-600 hover:bg-red-700 text-white px-5 py-3 rounded-2xl text-xs font-black shadow-lg transition-all flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-file-pdf"></i>
+                                <span>Reporte en PDF</span>
+                            </button>
+                            <button onclick="switchSection('cursos')" class="w-full md:w-auto bg-white text-blue-900 hover:bg-blue-50 px-5 py-3 rounded-2xl text-xs font-black shadow-lg transition-all flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-book-open text-blue-600"></i>
+                                <span>Mis Cursos (${coursesData.length})</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                            <span class="text-[11px] font-bold uppercase text-slate-400">Total Alumnos</span>
+                            <div class="flex items-baseline justify-between mt-2">
+                                <span class="text-xl md:text-2xl font-black text-slate-800">${stats.total}</span>
+                                <span class="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">General</span>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                            <span class="text-[11px] font-bold uppercase text-slate-400">Presentes</span>
+                            <div class="flex items-baseline justify-between mt-2">
+                                <span class="text-xl md:text-2xl font-black text-slate-800">${stats.presentes}</span>
+                                <span class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">${stats.porcentajePresentes}%</span>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                            <span class="text-[11px] font-bold uppercase text-slate-400">Ausentes</span>
+                            <div class="flex items-baseline justify-between mt-2">
+                                <span class="text-xl md:text-2xl font-black text-slate-800">${stats.ausentes}</span>
+                                <span class="text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">${stats.porcentajeAusentes}%</span>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                            <span class="text-[11px] font-bold uppercase text-slate-400">Tardanzas</span>
+                            <div class="flex items-baseline justify-between mt-2">
+                                <span class="text-xl md:text-2xl font-black text-slate-800">${stats.tardanzas}</span>
+                                <span class="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">${stats.porcentajeTardanzas}%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-200/80 space-y-4">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                    <i class="fa-solid fa-list-check text-sm"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-sm md:text-base">Seleccione un Curso para Tomar Asistencia</h3>
+                                    <p class="text-xs text-slate-500">Haga clic en cualquier curso para cargar su lista de alumnos</p>
+                                </div>
+                            </div>
+                            <button onclick="openCourseModalForCreate()" class="text-xs font-bold text-indigo-600 hover:underline">+ Crear Nuevo Curso</button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            ${coursesData.map(course => {
+                                const courseStudents = studentsData.filter(s => s.course === course);
+                                const count = courseStudents.length;
+                                const isSelected = selectedCourse === course;
+                                return `
+                                    <div onclick="selectCourseAndTakeAttendance('${course}')" class="p-5 rounded-2xl border ${isSelected ? 'border-blue-500 bg-blue-50/40 shadow-md' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'} transition-all cursor-pointer flex flex-col justify-between space-y-4">
+                                        <div class="flex items-start justify-between">
+                                            <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+                                                <i class="fa-solid fa-book"></i>
+                                            </div>
+                                            <span class="text-[10px] font-bold px-2.5 py-1 rounded-full ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'}">${count} Alumnos</span>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-slate-800 text-sm">${course}</h4>
+                                            <p class="text-xs text-slate-500 mt-0.5">Colegio San Gabriel</p>
+                                        </div>
+                                        <div class="flex items-center justify-between pt-3 border-t border-slate-100 text-xs font-bold text-blue-600">
+                                            <span>Tomar Asistencia</span>
+                                            <i class="fa-solid fa-arrow-right"></i>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCursosSectionHTML() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-lg md:text-xl font-black text-slate-800">Gestión de Cursos y Grados</h2>
+                            <p class="text-xs text-slate-500 mt-1">Crea nuevas materias, edita sus nombres o elimina cursos obsoletos.</p>
+                        </div>
+                        <button onclick="openCourseModalForCreate()" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition-all flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-folder-plus text-xs"></i>
+                            <span>Crear Nuevo Curso</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-4 md:p-6 shadow-sm border border-slate-200/80 space-y-4">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[500px]">
+                                <thead>
+                                    <tr class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                                        <th class="py-3 px-4">N°</th>
+                                        <th class="py-3 px-4">Nombre del Curso / Grado</th>
+                                        <th class="py-3 px-4 text-center">Alumnos</th>
+                                        <th class="py-3 px-4 text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    ${coursesData.map((course, index) => {
+                                        const count = studentsData.filter(s => s.course === course).length;
+                                        return `
+                                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                                <td class="py-4 px-4 font-semibold text-slate-500 text-xs">${index + 1}</td>
+                                                <td class="py-4 px-4 font-bold text-slate-800 text-xs flex items-center space-x-2">
+                                                    <i class="fa-solid fa-book text-indigo-500 shrink-0"></i>
+                                                    <span class="truncate">${course}</span>
+                                                </td>
+                                                <td class="py-4 px-4 text-center">
+                                                    <span class="px-3 py-1 bg-indigo-50 text-indigo-700 font-bold text-xs rounded-full">${count}</span>
+                                                </td>
+                                                <td class="py-4 px-4 text-center">
+                                                    <div class="flex items-center justify-center space-x-2">
+                                                        <button onclick="openCourseModalForEdit(${index})" title="Editar" class="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-bold transition-colors">
+                                                            <i class="fa-solid fa-pen-to-square mr-1"></i> <span class="hidden sm:inline">Editar</span>
+                                                        </button>
+                                                        <button onclick="deleteCourse(${index})" title="Eliminar" class="px-3 py-1.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold transition-colors">
+                                                            <i class="fa-solid fa-trash mr-1"></i> <span class="hidden sm:inline">Eliminar</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadAttendanceForCurrentSelection() {
+            const recordKey = `${attendanceDate}_${selectedCourse}`;
+            const existingRecord = attendanceHistoryRecords[recordKey];
+            const courseMasterStudents = studentsData.filter(s => s.course === selectedCourse);
+
+            if (existingRecord) {
+                activeAttendanceList = JSON.parse(JSON.stringify(existingRecord));
+            } else {
+                activeAttendanceList = courseMasterStudents.map(stu => ({
+                    id: stu.id,
+                    name: stu.name,
+                    photo: stu.photo,
+                    status: null
+                }));
+            }
+        }
+
+        function onAttendanceDateChange(dateVal) {
+            attendanceDate = dateVal;
+            loadAttendanceForCurrentSelection();
+            renderApp();
+        }
+
+        function onAttendanceCourseChange(courseVal) {
+            selectedCourse = courseVal;
+            loadAttendanceForCurrentSelection();
+            renderApp();
+        }
+
+        function renderAsistenciaSectionHTML() {
+            const filteredStudents = activeAttendanceList.filter(s => 
+                s.name.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+
+            const total = activeAttendanceList.length;
+            const pendientes = activeAttendanceList.filter(s => s.status === null).length;
+            const presentes = activeAttendanceList.filter(s => s.status === 'Presente').length;
+            const ausentes = activeAttendanceList.filter(s => s.status === 'Ausente').length;
+            const tardanzas = activeAttendanceList.filter(s => s.status === 'Tardanza').length;
+
+            const recordKey = `${attendanceDate}_${selectedCourse}`;
+            const isAlreadySaved = attendanceHistoryRecords[recordKey] !== undefined;
+
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-200/80 flex flex-col lg:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center space-x-3 w-full lg:w-auto">
+                            <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 text-lg shrink-0">
+                                <i class="fa-solid fa-fingerprint"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-base md:text-lg font-black text-slate-800">Toma de Asistencia en Directo</h2>
+                                <p class="text-xs text-slate-500">
+                                    ${isAlreadySaved ? '<span class="text-emerald-600 font-bold">✓ Asistencia ya guardada para esta fecha.</span>' : '<span class="text-amber-600 font-bold">⚠️ Nueva asistencia en blanco.</span>'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
+                            <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                                <i class="fa-regular fa-calendar text-blue-600 text-xs"></i>
+                                <input type="date" id="attendance-date-input" value="${attendanceDate}" onchange="onAttendanceDateChange(this.value)" class="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer">
+                            </div>
+
+                            <select id="active-course-dropdown" onchange="onAttendanceCourseChange(this.value)" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                                ${coursesData.map(c => `<option value="${c}" ${c===selectedCourse?'selected':''}>${c}</option>`).join('')}
+                            </select>
+
+                            <button onclick="openStudentModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 whitespace-nowrap">
+                                <i class="fa-solid fa-user-plus mr-1"></i> Alumno
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <div class="bg-white p-3.5 md:p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                            <span class="text-[10px] font-bold uppercase text-slate-400">Total</span>
+                            <p class="text-lg md:text-xl font-black text-slate-800 mt-0.5">${total}</p>
+                        </div>
+                        <div class="bg-white p-3.5 md:p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                            <span class="text-[10px] font-bold uppercase text-slate-500">Pendientes</span>
+                            <p class="text-lg md:text-xl font-black text-slate-600 mt-0.5">${pendientes}</p>
+                        </div>
+                        <div class="bg-white p-3.5 md:p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                            <span class="text-[10px] font-bold uppercase text-emerald-600">Presentes</span>
+                            <p class="text-lg md:text-xl font-black text-emerald-600 mt-0.5">${presentes}</p>
+                        </div>
+                        <div class="bg-white p-3.5 md:p-4 rounded-2xl shadow-sm border border-slate-200/80">
+                            <span class="text-[10px] font-bold uppercase text-red-600">Ausentes</span>
+                            <p class="text-lg md:text-xl font-black text-red-600 mt-0.5">${ausentes}</p>
+                        </div>
+                        <div class="bg-white p-3.5 md:p-4 rounded-2xl shadow-sm border border-slate-200/80 col-span-2 sm:col-span-1">
+                            <span class="text-[10px] font-bold uppercase text-amber-600">Tardanzas</span>
+                            <p class="text-lg md:text-xl font-black text-amber-600 mt-0.5">${tardanzas}</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-4 md:p-6 space-y-6">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm">Lista de Estudiantes — ${selectedCourse} (${attendanceDate})</h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Asigna el estado de cada estudiante</p>
+                            </div>
+                            <button onclick="markAllStatus('Presente')" class="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold transition-all">
+                                <i class="fa-solid fa-check-double mr-1"></i> Todos Presentes
+                            </button>
+                        </div>
+
+                        ${filteredStudents.length === 0 ? `
+                            <div class="py-12 text-center text-slate-400 text-xs">No hay alumnos en este curso. Usa "+ Alumno" para agregar.</div>
+                        ` : `
+                            <div class="block md:hidden space-y-3">
+                                ${filteredStudents.map((stu, index) => {
+                                    const isPresent = stu.status === 'Presente';
+                                    const isAbsent = stu.status === 'Ausente';
+                                    const isLate = stu.status === 'Tardanza';
+                                    const isNull = stu.status === null;
+
+                                    return `
+                                        <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 shadow-sm">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center space-x-3 overflow-hidden">
+                                                    <span class="text-xs font-bold text-slate-400">${index + 1}.</span>
+                                                    <img src="${stu.photo}" onerror="this.src='https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'" class="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0">
+                                                    <div class="truncate">
+                                                        <h4 class="font-bold text-slate-800 text-xs truncate">${stu.name}</h4>
+                                                        ${isNull ? '<span class="text-[10px] text-amber-600 font-semibold">⚠️ Pendiente</span>' : `<span class="text-[10px] font-bold ${isPresent?'text-emerald-600':isAbsent?'text-red-600':'text-amber-600'}">${stu.status}</span>`}
+                                                    </div>
+                                                </div>
+                                                <button onclick="deleteStudent(${stu.id})" class="text-slate-400 hover:text-red-600 p-2 text-xs">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                            <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60">
+                                                <button type="button" onclick="setStudentStatus(${stu.id}, 'Presente')" class="py-2 rounded-xl text-[11px] font-bold transition-all ${isPresent ? 'bg-emerald-600 text-white shadow' : 'bg-white text-slate-700 border border-slate-200'}">
+                                                    <i class="fa-solid fa-check mr-1"></i> Presente
+                                                </button>
+                                                <button type="button" onclick="setStudentStatus(${stu.id}, 'Ausente')" class="py-2 rounded-xl text-[11px] font-bold transition-all ${isAbsent ? 'bg-red-600 text-white shadow' : 'bg-white text-slate-700 border border-slate-200'}">
+                                                    <i class="fa-solid fa-xmark mr-1"></i> Ausente
+                                                </button>
+                                                <button type="button" onclick="setStudentStatus(${stu.id}, 'Tardanza')" class="py-2 rounded-xl text-[11px] font-bold transition-all ${isLate ? 'bg-amber-500 text-white shadow' : 'bg-white text-slate-700 border border-slate-200'}">
+                                                    <i class="fa-solid fa-clock mr-1"></i> Tardanza
+                                                </button>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+
+                            <div class="hidden md:block overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                                            <th class="py-3 px-4">N°</th>
+                                            <th class="py-3 px-4">Foto</th>
+                                            <th class="py-3 px-4">Nombre del alumno</th>
+                                            <th class="py-3 px-4 text-center">Estado de Asistencia</th>
+                                            <th class="py-3 px-4 text-center">Eliminar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 text-sm">
+                                        ${filteredStudents.map((stu, index) => {
+                                            const isPresent = stu.status === 'Presente';
+                                            const isAbsent = stu.status === 'Ausente';
+                                            const isLate = stu.status === 'Tardanza';
+                                            const isNull = stu.status === null;
+
+                                            return `
+                                                <tr class="hover:bg-slate-50/80 transition-colors">
+                                                    <td class="py-4 px-4 font-semibold text-slate-500 text-xs">${index + 1}</td>
+                                                    <td class="py-4 px-4">
+                                                        <img src="${stu.photo}" alt="${stu.name}" onerror="this.src='https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'" class="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-sm">
+                                                    </td>
+                                                    <td class="py-4 px-4 font-bold text-slate-800 text-xs">${stu.name}</td>
+                                                    <td class="py-4 px-4 text-center">
+                                                        <div class="inline-flex rounded-2xl p-1 bg-slate-100 border border-slate-200 shadow-inner">
+                                                            <button type="button" onclick="setStudentStatus(${stu.id}, 'Presente')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isPresent ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/30' : 'text-slate-600 hover:bg-slate-200'}">
+                                                                <i class="fa-solid fa-check mr-1"></i> Presente
+                                                            </button>
+                                                            <button type="button" onclick="setStudentStatus(${stu.id}, 'Ausente')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isAbsent ? 'bg-red-600 text-white shadow-md shadow-red-500/30' : 'text-slate-600 hover:bg-slate-200'}">
+                                                                <i class="fa-solid fa-xmark mr-1"></i> Ausente
+                                                            </button>
+                                                            <button type="button" onclick="setStudentStatus(${stu.id}, 'Tardanza')" class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isLate ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30' : 'text-slate-600 hover:bg-slate-200'}">
+                                                                <i class="fa-solid fa-clock mr-1"></i> Tardanza
+                                                            </button>
+                                                        </div>
+                                                        ${isNull ? '<span class="block text-[10px] text-amber-600 font-semibold mt-1">⚠️ Pendiente</span>' : ''}
+                                                    </td>
+                                                    <td class="py-4 px-4 text-center">
+                                                        <button onclick="deleteStudent(${stu.id})" class="text-slate-400 hover:text-red-600 p-2 rounded-xl hover:bg-red-50 transition-colors text-xs" title="Eliminar">
+                                                            <i class="fa-solid fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `}
+
+                        <div class="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <p class="text-xs text-slate-500 text-center sm:text-left">Guardando asistencia para <strong>${attendanceDate}</strong> en <strong>${selectedCourse}</strong>.</p>
+                            <button onclick="saveAttendanceRecord()" class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-8 py-3.5 rounded-2xl text-sm font-extrabold shadow-lg shadow-emerald-600/30 transition-all transform active:scale-95 flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-floppy-disk text-base"></i>
+                                <span>Guardar Asistencia de Curso</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fixed bottom-6 right-6 md:hidden z-30">
+                    <button onclick="saveAttendanceRecord()" class="w-14 h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-2xl flex items-center justify-center text-xl transition-all transform active:scale-95" title="Guardar Asistencia">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderReportesSectionHTML() {
+            const courseStudents = studentsData.filter(s => s.course === selectedCourse);
+            let studentReportMap = {};
+            courseStudents.forEach(stu => {
+                studentReportMap[stu.id] = {
+                    name: stu.name,
+                    photo: stu.photo,
+                    presentes: 0,
+                    ausentes: 0,
+                    tardanzas: 0,
+                    totalClasses: 0
+                };
+            });
+
+            Object.keys(attendanceHistoryRecords).forEach(key => {
+                if (key.includes(`_${selectedCourse}`)) {
+                    const recordList = attendanceHistoryRecords[key];
+                    recordList.forEach(rec => {
+                        if (studentReportMap[rec.id]) {
+                            studentReportMap[rec.id].totalClasses++;
+                            if (rec.status === 'Presente') studentReportMap[rec.id].presentes++;
+                            if (rec.status === 'Ausente') studentReportMap[rec.id].ausentes++;
+                            if (rec.status === 'Tardanza') studentReportMap[rec.id].tardanzas++;
+                        }
+                    });
+                }
+            });
+
+            const reportArray = Object.values(studentReportMap);
+            const sortedByAbsences = [...reportArray].sort((a, b) => b.ausentes - a.ausentes);
+            const totalRecordedClasses = Object.keys(attendanceHistoryRecords).filter(k => k.includes(`_${selectedCourse}`)).length;
+
+            return `
+                <div class="space-y-6">
+                    <div class="bg-gradient-to-r from-red-900 via-rose-900 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-xl space-y-4">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                            <div class="space-y-2 max-w-xl">
+                                <div class="inline-flex items-center space-x-2 bg-red-500/20 border border-red-400/30 px-3 py-1 rounded-full text-xs font-bold text-red-200">
+                                    <i class="fa-solid fa-file-pdf"></i>
+                                    <span>Exportación & Vista Previa PDF Multimes</span>
+                                </div>
+                                <h3 class="text-xl md:text-2xl font-black">Consolidado Multimes de Asistencia</h3>
+                                <p class="text-xs md:text-sm text-red-100 leading-relaxed">Selecciona el curso y los meses deseados (ej. Marzo, Abril, Mayo, Junio). El reporte seleccionado se aplicará tanto a la <strong>vista previa en pantalla</strong> como al <strong>PDF descargable</strong>.</p>
+                            </div>
+
+                            <div class="bg-white/10 backdrop-blur-md p-4.5 rounded-2xl border border-white/10 flex flex-col items-stretch gap-3 w-full lg:w-auto">
+                                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                    <div class="space-y-1 w-full sm:w-auto">
+                                        <label class="text-[10px] font-bold text-slate-300 uppercase block">Curso / Grado</label>
+                                        <select id="pdf-course-select" class="w-full sm:w-60 bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-red-500">
+                                            ${coursesData.map(c => `<option value="${c}" ${c===selectedCourse?'selected':''}>${c}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-1.5 pt-1">
+                                    <label class="text-[10px] font-bold text-slate-300 uppercase block">Meses a incluir en el PDF:</label>
+                                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs">
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="03" class="pdf-main-month-cb rounded text-red-600 focus:ring-0" checked>
+                                            <span>Marzo</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="04" class="pdf-main-month-cb rounded text-red-600 focus:ring-0" checked>
+                                            <span>Abril</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="05" class="pdf-main-month-cb rounded text-red-600 focus:ring-0" checked>
+                                            <span>Mayo</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="06" class="pdf-main-month-cb rounded text-red-600 focus:ring-0" checked>
+                                            <span>Junio</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="07" class="pdf-main-month-cb rounded text-red-600 focus:ring-0">
+                                            <span>Julio</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="08" class="pdf-main-month-cb rounded text-red-600 focus:ring-0">
+                                            <span>Agosto</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="09" class="pdf-main-month-cb rounded text-red-600 focus:ring-0">
+                                            <span>Sept.</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="10" class="pdf-main-month-cb rounded text-red-600 focus:ring-0">
+                                            <span>Octubre</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="11" class="pdf-main-month-cb rounded text-red-600 focus:ring-0">
+                                            <span>Nov.</span>
+                                        </label>
+                                        <label class="inline-flex items-center space-x-1.5 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-700 font-semibold text-slate-200 cursor-pointer hover:bg-slate-800">
+                                            <input type="checkbox" value="12" class="pdf-main-month-cb rounded text-red-600 focus:ring-0">
+                                            <span>Diciembre</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center space-x-2 pt-2">
+                                    <button onclick="openMultiMonthPdfModal()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-blue-600/40 transition-all flex items-center justify-center space-x-2 cursor-pointer">
+                                        <i class="fa-solid fa-eye text-sm"></i>
+                                        <span>Ver Reporte</span>
+                                    </button>
+                                    <button onclick="generateMultiMonthPDF()" class="flex-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs shadow-lg shadow-red-600/40 transition-all flex items-center justify-center space-x-2 cursor-pointer">
+                                        <i class="fa-solid fa-download text-sm"></i>
+                                        <span>Descargar PDF</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div>
+                            <div class="inline-flex items-center space-x-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-bold mb-2">
+                                <i class="fa-solid fa-chart-pie"></i>
+                                <span>Reportes Analíticos Mensuales</span>
+                            </div>
+                            <h2 class="text-lg md:text-xl font-black text-slate-800">Estadísticas y Asistencia por Alumno</h2>
+                            <p class="text-xs text-slate-500 mt-1">Visualiza las métricas generales en ${selectedCourse}.</p>
+                        </div>
+                        <div class="flex items-center space-x-3 w-full md:w-auto">
+                            <label class="text-xs font-bold text-slate-700 whitespace-nowrap">Curso:</label>
+                            <select id="report-course-select" onchange="selectedCourse = this.value; renderApp();" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-full md:w-64">
+                                ${coursesData.map(c => `<option value="${c}" ${c===selectedCourse?'selected':''}>${c}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-200/80 space-y-6 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-sm md:text-base">Gráfica Mensual — ${selectedCourse}</h3>
+                                    <p class="text-xs text-slate-400">Basado en ${totalRecordedClasses} sesiones registradas</p>
+                                </div>
+                                <span class="text-xs font-bold bg-indigo-50 text-indigo-700 px-3 py-1 rounded-xl">Actual</span>
+                            </div>
+
+                            <div class="space-y-3 py-4 max-h-[340px] overflow-y-auto pr-2">
+                                ${reportArray.length === 0 ? `<p class="text-xs text-slate-400 text-center py-8">No hay alumnos en este curso.</p>` : reportArray.map(stu => {
+                                    const total = stu.totalClasses || 1;
+                                    const pPct = Math.round((stu.presentes / total) * 100);
+                                    const aPct = Math.round((stu.ausentes / total) * 100);
+                                    const tPct = Math.round((stu.tardanzas / total) * 100);
+
+                                    return `
+                                        <div class="space-y-1">
+                                            <div class="flex items-center justify-between text-xs font-bold">
+                                                <div class="flex items-center space-x-2 truncate mr-2">
+                                                    <img src="${stu.photo}" class="w-6 h-6 rounded-full object-cover shrink-0">
+                                                    <span class="text-slate-700 truncate">${stu.name}</span>
+                                                </div>
+                                                <div class="space-x-1.5 shrink-0 text-[11px]">
+                                                    <span class="text-emerald-600">${stu.presentes}P</span>
+                                                    <span class="text-red-600">${stu.ausentes}F</span>
+                                                    <span class="text-amber-600">${stu.tardanzas}T</span>
+                                                </div>
+                                            </div>
+                                            <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex shadow-inner">
+                                                <div style="width: ${pPct}%" class="bg-emerald-500 h-full"></div>
+                                                <div style="width: ${tPct}%" class="bg-amber-400 h-full"></div>
+                                                <div style="width: ${aPct}%" class="bg-red-500 h-full"></div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+
+                            <div class="flex items-center justify-center space-x-4 pt-4 border-t border-slate-100 text-[11px] md:text-xs font-bold text-slate-600">
+                                <div class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-md bg-emerald-500"></span><span>Presente</span></div>
+                                <div class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-md bg-amber-400"></span><span>Tardanza</span></div>
+                                <div class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-md bg-red-500"></span><span>Ausencia</span></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-3xl p-5 md:p-6 shadow-sm border border-slate-200/80 space-y-6 flex flex-col justify-between">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm md:text-base">Alerta de Inasistencias</h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Ranking de alumnos con más faltas</p>
+                            </div>
+
+                            <div class="space-y-3">
+                                ${sortedByAbsences.slice(0, 4).map((stu, idx) => `
+                                    <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                                        <div class="flex items-center space-x-2.5 truncate mr-2">
+                                            <div class="w-6 h-6 rounded-full bg-red-100 text-red-600 font-black text-[11px] flex items-center justify-center shrink-0">#${idx+1}</div>
+                                            <img src="${stu.photo}" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                            <div class="truncate">
+                                                <h4 class="text-xs font-bold text-slate-800 truncate">${stu.name}</h4>
+                                                <p class="text-[10px] text-red-600 font-semibold">${stu.ausentes} Faltas acumuladas</p>
+                                            </div>
+                                        </div>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${stu.ausentes > 1 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'} shrink-0">
+                                            ${stu.ausentes > 1 ? 'Atención' : 'Normal'}
+                                        </span>
+                                    </div>
+                                `).join('')}
+                            </div>
+
+                            <div class="p-4 rounded-2xl bg-gradient-to-br from-indigo-900 to-blue-900 text-white space-y-1.5">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa-solid fa-circle-info text-cyan-400 text-xs"></i>
+                                    <h4 class="text-xs font-bold">Resumen Docente</h4>
+                                </div>
+                                <p class="text-[11px] text-blue-100 leading-relaxed">Los datos se guardan en el almacenamiento local de tu navegador Web.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateMultiMonthPDF() {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                alertBox('Cargando librería PDF, reintente en 2 segundos...');
+                return;
+            }
+
+            const courseVal = document.getElementById('pdf-course-select') ? document.getElementById('pdf-course-select').value : selectedCourse;
+            const checkboxes = document.querySelectorAll('.pdf-main-month-cb:checked');
+            const selectedMonths = Array.from(checkboxes).map(cb => cb.value);
+
+            if (selectedMonths.length === 0) {
+                alertBox('Por favor, selecciona al menos un mes en las casillas para generar el PDF.');
+                return;
+            }
+
+            const courseStudents = studentsData.filter(s => s.course === courseVal);
+            if (courseStudents.length === 0) {
+                alertBox('No se encontraron estudiantes para este curso.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+            const monthNamesMap = {
+                "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+                "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+                "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+            };
+
+            const year = 2026;
+            let totalGeneralMap = {};
+            courseStudents.forEach(stu => {
+                totalGeneralMap[stu.id] = { name: stu.name, p: 0, f: 0, t: 0 };
+            });
+
+            selectedMonths.forEach((monthStr, index) => {
+                if (index > 0) {
+                    doc.addPage('a4', 'landscape');
+                }
+
+                const monthName = monthNamesMap[monthStr];
+                const monthIndex = parseInt(monthStr) - 1;
+                const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+                const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+                doc.setFillColor(11, 19, 43);
+                doc.rect(0, 0, 297, 24, 'F');
+
+                doc.setFontSize(15);
+                doc.setTextColor(255, 255, 255);
+                doc.setFont('helvetica', 'bold');
+                doc.text("COLEGIO SAN GABRIEL", 14, 11);
+
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                doc.text("REPORTE MULTIMES CONSOLIDADO DE ASISTENCIA", 14, 17);
+
+                doc.setTextColor(51, 65, 85);
+                doc.setFontSize(9.5);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Curso / Grado: ${courseVal}`, 14, 29);
+                doc.text(`Mes: ${monthName.toUpperCase()} ${year}`, 125, 29);
+                doc.text(`Docente: ${teachersData[0].name}`, 215, 29);
+
+                const headRow = ['N°', 'Estudiante'];
+                daysArray.forEach(d => {
+                    headRow.push(String(d).padStart(2, '0'));
+                });
+                headRow.push('P', 'F', 'T');
+
+                const tableBody = courseStudents.map((student, idx) => {
+                    const row = [idx + 1, student.name];
+                    let pCount = 0, fCount = 0, tCount = 0;
+
+                    daysArray.forEach(d => {
+                        const dayFormatted = String(d).padStart(2, '0');
+                        const dateKey = `${year}-${monthStr}-${dayFormatted}_${courseVal}`;
+                        const dayRecord = attendanceHistoryRecords[dateKey];
+                        let statusChar = '-';
+
+                        if (dayRecord) {
+                            const studentState = dayRecord.find(s => s.id === student.id);
+                            if (studentState && studentState.status) {
+                                if (studentState.status === 'Presente') {
+                                    statusChar = 'P';
+                                    pCount++;
+                                    totalGeneralMap[student.id].p++;
+                                } else if (studentState.status === 'Ausente') {
+                                    statusChar = 'F';
+                                    fCount++;
+                                    totalGeneralMap[student.id].f++;
+                                } else if (studentState.status === 'Tardanza') {
+                                    statusChar = 'T';
+                                    tCount++;
+                                    totalGeneralMap[student.id].t++;
+                                }
+                            }
+                        }
+
+                        row.push(statusChar);
+                    });
+
+                    row.push(pCount, fCount, tCount);
+                    return row;
+                });
+
+                let colStyles = {
+                    0: { halign: 'center', cellWidth: 7 },
+                    1: { halign: 'left', cellWidth: 40 }
+                };
+
+                for (let i = 2; i < headRow.length; i++) {
+                    colStyles[i] = { halign: 'center' };
+                }
+
+                doc.autoTable({
+                    startY: 33,
+                    head: [headRow],
+                    body: tableBody,
+                    theme: 'grid',
+                    styles: {
+                        fontSize: 7,
+                        cellPadding: 0.8,
+                        valign: 'middle'
+                    },
+                    headStyles: {
+                        fillColor: [28, 37, 65],
+                        textColor: [255, 255, 255],
+                        fontStyle: 'bold',
+                        halign: 'center'
+                    },
+                    columnStyles: colStyles,
+                    alternateRowStyles: {
+                        fillColor: [248, 250, 252]
+                    },
+                    didParseCell: function(data) {
+                        if (data.section === 'body' && data.column.index >= 2) {
+                            if (data.cell.raw === 'P') {
+                                data.cell.styles.textColor = [16, 185, 129];
+                                data.cell.styles.fontStyle = 'bold';
+                            } else if (data.cell.raw === 'F') {
+                                data.cell.styles.textColor = [239, 68, 68];
+                                data.cell.styles.fontStyle = 'bold';
+                            } else if (data.cell.raw === 'T') {
+                                data.cell.styles.textColor = [245, 158, 11];
+                                data.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    }
+                });
+
+                const finalY = doc.lastAutoTable.finalY + 7;
+                doc.setFontSize(8);
+                doc.setTextColor(100, 116, 139);
+                doc.setFont('helvetica', 'italic');
+                doc.text(`Página ${index + 1} de ${selectedMonths.length + 1} | Mes: ${monthName} | P = Presente | F = Ausente | T = Tardanza`, 14, finalY);
+            });
+
+            doc.addPage('a4', 'landscape');
+            doc.setFillColor(11, 19, 43);
+            doc.rect(0, 0, 297, 24, 'F');
+
+            doc.setFontSize(15);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.text("COLEGIO SAN GABRIEL", 14, 11);
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text("RESUMEN TOTAL ACUMULADO DE ASISTENCIA", 14, 17);
+
+            const selectedMonthLabels = selectedMonths.map(m => monthNamesMap[m]).join(', ');
+            doc.setTextColor(51, 65, 85);
+            doc.setFontSize(9.5);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Curso / Grado: ${courseVal}`, 14, 29);
+            doc.text(`Meses Consolidados: ${selectedMonthLabels} ${year}`, 110, 29);
+
+            const summaryHead = ['N°', 'Nombre del Estudiante', 'Total Presentes (P)', 'Total Ausencias (F)', 'Total Tardanzas (T)', '% Asistencia'];
+            const summaryBody = Object.values(totalGeneralMap).map((stu, idx) => {
+                const totalSesiones = stu.p + stu.f + stu.t;
+                const pct = totalSesiones > 0 ? Math.round((stu.p / totalSesiones) * 100) : 0;
+                return [idx + 1, stu.name, stu.p, stu.f, stu.t, `${pct}%`];
+            });
+
+            doc.autoTable({
+                startY: 34,
+                head: [summaryHead],
+                body: summaryBody,
+                theme: 'grid',
+                styles: { fontSize: 8.5, cellPadding: 2, valign: 'middle' },
+                headStyles: { fillColor: [67, 97, 238], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 12 },
+                    1: { halign: 'left' },
+                    2: { halign: 'center' },
+                    3: { halign: 'center' },
+                    4: { halign: 'center' },
+                    5: { halign: 'center', fontStyle: 'bold' }
+                }
+            });
+
+            const safeCourseName = courseVal.replace(/[^a-zA-Z0-9]/g, '_');
+            const fileName = `Asistencia_Consolidada_${safeCourseName}_${selectedMonths.join('-')}.pdf`;
+            doc.save(fileName);
+
+            alertBox(`Reporte PDF descargado (${selectedMonths.length} meses consolidados).`);
+        }
+
+        function openMultiMonthPdfModal() {
+            const courseVal = document.getElementById('pdf-course-select') ? document.getElementById('pdf-course-select').value : selectedCourse;
+            const mainCbs = document.querySelectorAll('.pdf-main-month-cb:checked');
+            const selectedVals = Array.from(mainCbs).map(cb => cb.value);
+            document.querySelectorAll('.pdf-month-cb').forEach(cb => {
+                cb.checked = selectedVals.includes(cb.value);
+            });
+
+            document.getElementById('pdf-selected-course-label').innerText = courseVal;
+            document.getElementById('pdf-modal-subtitle').innerText = `Consolidado de Asistencia — ${courseVal}`;
+            document.getElementById('pdf-view-modal').classList.remove('hidden');
+            renderMultiMonthPreviewTable();
+        }
+
+        function closeMultiMonthPdfModal() {
+            document.getElementById('pdf-view-modal').classList.add('hidden');
+        }
+
+        function renderMultiMonthPreviewTable() {
+            const courseVal = document.getElementById('pdf-course-select') ? document.getElementById('pdf-course-select').value : selectedCourse;
+            const checkboxes = document.querySelectorAll('.pdf-month-cb:checked');
+            const selectedMonths = Array.from(checkboxes).map(cb => cb.value);
+
+            const monthNamesMap = {
+                "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril",
+                "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto",
+                "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre"
+            };
+
+            const paper = document.getElementById('pdf-document-paper');
+
+            if (selectedMonths.length === 0) {
+                paper.innerHTML = `<div class="text-center py-12 text-slate-400 font-bold text-xs">Por favor, selecciona al menos un mes para consultar.</div>`;
+                return;
+            }
+
+            const courseStudents = studentsData.filter(s => s.course === courseVal);
+            if (courseStudents.length === 0) {
+                paper.innerHTML = `<div class="text-center py-12 text-slate-400 font-bold text-xs">No hay alumnos registrados en el curso "${courseVal}".</div>`;
+                return;
+            }
+
+            const selectedMonthLabels = selectedMonths.map(m => monthNamesMap[m]).join(', ');
+
+            let html = `
+                <div class="border-b-2 border-slate-900 pb-4 flex justify-between items-end">
+                    <div>
+                        <h1 class="text-xl font-black tracking-tight text-slate-900 uppercase">Colegio San Gabriel</h1>
+                        <p class="text-xs font-bold text-slate-500 uppercase">Consolidado General de Asistencia Escolar</p>
+                    </div>
+                    <div class="text-right text-xs">
+                        <p class="font-bold text-slate-800">Curso: <span class="text-blue-700">${courseVal}</span></p>
+                        <p class="text-slate-500">Periodo: ${selectedMonthLabels} 2026</p>
+                        <p class="text-slate-500">Docente: ${teachersData[0].name}</p>
+                    </div>
+                </div>
+                <div class="space-y-6">
+            `;
+
+            selectedMonths.forEach(mStr => {
+                const monthName = monthNamesMap[mStr];
+                const year = 2026;
+                const monthIndex = parseInt(mStr) - 1;
+                const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+                const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+                html += `
+                    <div class="space-y-2">
+                        <h3 class="text-xs font-extrabold uppercase bg-slate-100 text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200">
+                            Mes: ${monthName} (${daysInMonth} Días)
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-[10px] border-collapse border border-slate-300">
+                                <thead>
+                                    <tr class="bg-slate-800 text-white font-bold">
+                                        <th class="border border-slate-300 p-1 text-center w-6">N°</th>
+                                        <th class="border border-slate-300 p-1 text-left min-w-[150px]">Estudiante</th>
+                                        ${daysArray.map(d => `<th class="border border-slate-300 p-1 text-center w-5">${String(d).padStart(2, '0')}</th>`).join('')}
+                                        <th class="border border-slate-300 p-1 text-center bg-emerald-800 w-6">P</th>
+                                        <th class="border border-slate-300 p-1 text-center bg-red-800 w-6">F</th>
+                                        <th class="border border-slate-300 p-1 text-center bg-amber-800 w-6">T</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${courseStudents.map((student, idx) => {
+                                        let pCount = 0, fCount = 0, tCount = 0;
+                                        let daysCells = daysArray.map(d => {
+                                            const dayFormatted = String(d).padStart(2, '0');
+                                            const dateKey = `${year}-${mStr}-${dayFormatted}_${courseVal}`;
+                                            const dayRecord = attendanceHistoryRecords[dateKey];
+                                            let char = '-';
+                                            let colorClass = 'text-slate-300';
+
+                                            if (dayRecord) {
+                                                const st = dayRecord.find(s => s.id === student.id);
+                                                if (st && st.status) {
+                                                    if (st.status === 'Presente') { char = 'P'; pCount++; colorClass = 'text-emerald-600 font-bold bg-emerald-50'; }
+                                                    else if (st.status === 'Ausente') { char = 'F'; fCount++; colorClass = 'text-red-600 font-bold bg-red-50'; }
+                                                    else if (st.status === 'Tardanza') { char = 'T'; tCount++; colorClass = 'text-amber-600 font-bold bg-amber-50'; }
+                                                }
+                                            }
+                                            return `<td class="border border-slate-200 text-center p-0.5 ${colorClass}">${char}</td>`;
+                                        }).join('');
+
+                                        return `
+                                            <tr class="hover:bg-slate-50 border-b border-slate-200">
+                                                <td class="border border-slate-200 text-center font-bold text-slate-500 p-1">${idx + 1}</td>
+                                                <td class="border border-slate-200 font-semibold text-slate-800 p-1 truncate">${student.name}</td>
+                                                ${daysCells}
+                                                <td class="border border-slate-200 text-center font-extrabold text-emerald-700 bg-emerald-50/50 p-1">${pCount}</td>
+                                                <td class="border border-slate-200 text-center font-extrabold text-red-700 bg-red-50/50 p-1">${fCount}</td>
+                                                <td class="border border-slate-200 text-center font-extrabold text-amber-700 bg-amber-50/50 p-1">${tCount}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div><div class="pt-4 border-t border-slate-200 flex justify-between items-center text-[10px] text-slate-400 italic"><span>Plataforma Docente Colegio San Gabriel</span><span>Documento emitido electrónicamente</span></div>`;
+            paper.innerHTML = html;
+        }
+
+        function renderCalendarioSectionHTML() {
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            
+            const firstDayIndex = new Date(calendarYear, calendarMonth, 1).getDay();
+            const adjustedFirstDay = (firstDayIndex === 0) ? 6 : firstDayIndex - 1;
+            const totalDaysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+            const prevMonthDays = new Date(calendarYear, calendarMonth, 0).getDate();
+
+            let calendarCellsHTML = '';
+            
+            for (let i = adjustedFirstDay - 1; i >= 0; i--) {
+                const dayNum = prevMonthDays - i;
+                calendarCellsHTML += `
+                    <div class="bg-slate-50/50 text-slate-400 p-2 md:p-3 rounded-2xl h-20 md:h-24 flex flex-col justify-between opacity-50 select-none">
+                        <span class="text-xs font-bold">${dayNum}</span>
+                    </div>
+                `;
+            }
+
+            for (let day = 1; day <= totalDaysInMonth; day++) {
+                const monthStr = String(calendarMonth + 1).padStart(2, '0');
+                const dayStr = String(day).padStart(2, '0');
+                const dateKey = `${calendarYear}-${monthStr}-${dayStr}`;
+                const dayOfWeek = new Date(calendarYear, calendarMonth, day).getDay();
+                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+
+                const recordKey = `${dateKey}_${selectedCourse}`;
+                const hasSavedRecord = attendanceHistoryRecords[recordKey] !== undefined;
+
+                let badgeHTML = '';
+                if (!isWeekend) {
+                    badgeHTML = hasSavedRecord 
+                        ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-bold bg-emerald-100 text-emerald-700">Guardado ✓</span>`
+                        : `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-bold bg-slate-100 text-slate-500">Pendiente</span>`;
+                } else {
+                    badgeHTML = `<span class="text-[8px] md:text-[9px] text-slate-400 font-medium">Fin semana</span>`;
+                }
+
+                calendarCellsHTML += `
+                    <div onclick="openCalendarDayModal('${dateKey}')" class="bg-white p-2 md:p-3 rounded-2xl h-20 md:h-24 flex flex-col justify-between border border-slate-200/85 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-black text-slate-800">${day}</span>
+                            ${hasSavedRecord ? '<span class="w-2 h-2 rounded-full bg-emerald-500"></span>' : '<span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>'}
+                        </div>
+                        <div>
+                            ${badgeHTML}
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/80 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div>
+                            <div class="inline-flex items-center space-x-2 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold mb-2">
+                                <i class="fa-solid fa-calendar-days"></i>
+                                <span>Calendario Escolar Interactivo</span>
+                            </div>
+                            <h2 class="text-lg md:text-xl font-black text-slate-800">Planificador y Registro Mensual</h2>
+                            <p class="text-xs text-slate-500 mt-1">Haz clic en cualquier día del mes para ver su detalle.</p>
+                        </div>
+                        <div class="flex items-center space-x-3 w-full md:w-auto">
+                            <label class="text-xs font-bold text-slate-700 whitespace-nowrap">Curso:</label>
+                            <select id="calendar-course-select" onchange="selectedCourse = this.value; renderApp();" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 w-full md:w-64">
+                                ${coursesData.map(c => `<option value="${c}" ${c===selectedCourse?'selected':''}>${c}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-4 md:p-6 shadow-sm border border-slate-200/80 space-y-6">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-extrabold text-slate-800 text-base md:text-lg">${monthNames[calendarMonth]} ${calendarYear}</h3>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="prevMonth()" class="w-8.5 h-8.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors">
+                                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                                </button>
+                                <button onclick="currentMonth()" class="px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition-colors">
+                                    Hoy
+                                </button>
+                                <button onclick="nextMonth()" class="w-8.5 h-8.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors">
+                                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-7 gap-1.5 md:gap-2 text-center">
+                            <span class="text-[11px] md:text-xs font-bold text-slate-400">Lun</span>
+                            <span class="text-[11px] md:text-xs font-bold text-slate-400">Mar</span>
+                            <span class="text-[11px] md:text-xs font-bold text-slate-400">Mié</span>
+                            <span class="text-[11px] md:text-xs font-bold text-slate-400">Jue</span>
+                            <span class="text-[11px] md:text-xs font-bold text-slate-400">Vie</span>
+                            <span class="text-[11px] md:text-xs font-bold text-slate-400">Sáb</span>
+                            <span class="text-[11px] md:text-xs font-bold text-slate-400">Dom</span>
+                        </div>
+
+                        <div class="grid grid-cols-7 gap-1.5 md:gap-2">
+                            ${calendarCellsHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openCalendarDayModal(dateKey) {
+            const recordKey = `${dateKey}_${selectedCourse}`;
+            const savedList = attendanceHistoryRecords[recordKey];
+
+            document.getElementById('modal-day-title').innerText = `Asistencia: ${dateKey}`;
+            document.getElementById('modal-day-subtitle').innerText = `Curso: ${selectedCourse}`;
+
+            const container = document.getElementById('modal-day-content');
+
+            if (!savedList) {
+                container.innerHTML = `
+                    <div class="text-center py-8 space-y-3">
+                        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl mx-auto flex items-center justify-center">
+                            <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                        </div>
+                        <p class="text-xs font-bold text-slate-700">No hay asistencia guardada para esta fecha en este curso.</p>
+                        <p class="text-[11px] text-slate-400">Puedes ir a "Tomar Asistencia", seleccionar el ${dateKey} y registrar.</p>
+                    </div>
+                `;
+            } else {
+                const total = savedList.length;
+                const presentes = savedList.filter(s => s.status === 'Presente').length;
+                const ausentes = savedList.filter(s => s.status === 'Ausente').length;
+                const tardanzas = savedList.filter(s => s.status === 'Tardanza').length;
+
+                container.innerHTML = `
+                    <div class="grid grid-cols-3 gap-2 pb-2">
+                        <div class="bg-emerald-50 p-2.5 rounded-xl text-center">
+                            <span class="block text-[10px] font-bold text-emerald-600 uppercase">Presentes</span>
+                            <span class="text-sm font-black text-emerald-700">${presentes}</span>
+                        </div>
+                        <div class="bg-red-50 p-2.5 rounded-xl text-center">
+                            <span class="block text-[10px] font-bold text-red-600 uppercase">Ausentes</span>
+                            <span class="text-sm font-black text-red-700">${ausentes}</span>
+                        </div>
+                        <div class="bg-amber-50 p-2.5 rounded-xl text-center">
+                            <span class="block text-[10px] font-bold text-amber-600 uppercase">Tardanzas</span>
+                            <span class="text-sm font-black text-amber-700">${tardanzas}</span>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <p class="text-[11px] font-bold text-slate-400 uppercase">Listado de alumnos (${total}):</p>
+                        ${savedList.map(stu => {
+                            let badgeColor = 'bg-slate-100 text-slate-500';
+                            if (stu.status === 'Presente') badgeColor = 'bg-emerald-100 text-emerald-700';
+                            if (stu.status === 'Ausente') badgeColor = 'bg-red-100 text-red-700';
+                            if (stu.status === 'Tardanza') badgeColor = 'bg-amber-100 text-amber-700';
+                            return `
+                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                    <div class="flex items-center space-x-2.5 overflow-hidden">
+                                        <img src="${stu.photo || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'}" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                        <span class="text-xs font-bold text-slate-700 truncate">${stu.name}</span>
+                                    </div>
+                                    <span class="text-[10px] font-bold px-2.5 py-1 rounded-full ${badgeColor} shrink-0">${stu.status || 'Sin calificar'}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+
+            document.getElementById('calendar-day-modal').classList.remove('hidden');
+        }
+
+        function closeCalendarDayModal() {
+            document.getElementById('calendar-day-modal').classList.add('hidden');
+        }
+
+        function renderConfiguracionSectionHTML() {
+            return `
+                <div class="space-y-6 max-w-xl">
+                    <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/80 space-y-6">
+                        <div>
+                            <h2 class="text-lg md:text-xl font-black text-slate-800">Configuración de Cuenta & Seguridad</h2>
+                            <p class="text-xs text-slate-500 mt-1">Gestiona los datos de perfil y la seguridad PIN.</p>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold text-slate-700">Nombre de Docente</label>
+                            <input type="text" id="teacher-name-input" value="${teachersData[0].name}" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        </div>
+                        <div class="pt-2 flex items-center space-x-3">
+                            <button onclick="saveTeacherProfile()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all">Guardar Perfil</button>
+                        </div>
+                    </div>
+
+                    <!-- MÓDULO DE RESPALDO Y RESTAURACIÓN (BACKUP JSON) -->
+                    <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/80 space-y-4">
+                        <div>
+                            <h3 class="text-sm font-black text-slate-800 flex items-center space-x-2">
+                                <i class="fa-solid fa-database text-indigo-600"></i>
+                                <span>Respaldo y Restauración de Base de Datos (Backup JSON)</span>
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-1">Exporta un archivo de respaldo con todos tus cursos, alumnos e historiales o restáuralo en cualquier momento.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                            <button onclick="exportDatabaseJSON()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold p-3 rounded-2xl text-xs flex items-center justify-center space-x-2 border border-indigo-200 transition-all">
+                                <i class="fa-solid fa-download"></i>
+                                <span>Exportar Respaldo (JSON)</span>
+                            </button>
+                            <label class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold p-3 rounded-2xl text-xs flex items-center justify-center space-x-2 border border-emerald-200 transition-all cursor-pointer">
+                                <i class="fa-solid fa-upload"></i>
+                                <span>Restaurar Respaldo (JSON)</span>
+                                <input type="file" id="import-json-file" accept=".json" onchange="importDatabaseJSON(event)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200/80 space-y-4">
+                        <h3 class="text-xs font-bold text-red-600 uppercase tracking-wider">Zona de Peligro / Mantenimiento</h3>
+                        <p class="text-xs text-slate-500">Si deseas borrar los datos guardados localmente y volver a la demostración inicial:</p>
+                        <button onclick="resetSystemData()" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2.5 rounded-xl text-xs font-bold border border-red-200 transition-colors">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Restablecer datos de fábrica
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function exportDatabaseJSON() {
+            const backupData = {
+                teachersData: teachersData,
+                coursesData: coursesData,
+                studentsData: studentsData,
+                attendanceHistoryRecords: attendanceHistoryRecords,
+                teacherPin: teacherPin,
+                recoveryQuestion: recoveryQuestion,
+                recoveryAnswer: recoveryAnswer,
+                exportDate: new Date().toISOString()
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `backup_colegio_san_gabriel_${getFormattedLocalDate()}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            alertBox('¡Respaldo JSON descargado con éxito!');
+        }
+
+        function importDatabaseJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = JSON.parse(e.target.result);
+                    if (content.coursesData && content.studentsData) {
+                        teachersData = content.teachersData || defaultTeachersData;
+                        coursesData = content.coursesData || defaultCoursesData;
+                        studentsData = content.studentsData || defaultStudentsData;
+                        attendanceHistoryRecords = content.attendanceHistoryRecords || {};
+                        if (content.teacherPin) {
+                            teacherPin = content.teacherPin;
+                            localStorage.setItem('sg_teacherPin', teacherPin);
+                        }
+                        if (content.recoveryQuestion) {
+                            recoveryQuestion = content.recoveryQuestion;
+                            localStorage.setItem('sg_recoveryQ', recoveryQuestion);
+                        }
+                        if (content.recoveryAnswer) {
+                            recoveryAnswer = content.recoveryAnswer;
+                            localStorage.setItem('sg_recoveryA', recoveryAnswer);
+                        }
+
+                        saveToLocalStorage('sg_teachersData', teachersData);
+                        saveToLocalStorage('sg_coursesData', coursesData);
+                        saveToLocalStorage('sg_studentsData', studentsData);
+                        saveToLocalStorage('sg_attendanceHistoryRecords', attendanceHistoryRecords);
+
+                        alertBox('¡Base de datos restaurada correctamente desde el archivo JSON!');
+                        loadAttendanceForCurrentSelection();
+                        renderApp();
+                    } else {
+                        alertBox('El archivo JSON no tiene el formato válido del sistema.');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alertBox('Error al leer el archivo JSON.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function saveTeacherProfile() {
+            const inputVal = document.getElementById('teacher-name-input').value.trim();
+            if (inputVal) {
+                teachersData[0].name = inputVal;
+                saveToLocalStorage('sg_teachersData', teachersData);
+                alertBox('¡Perfil actualizado y guardado!');
+                renderApp();
+            }
+        }
+
+        function resetSystemData() {
+            if (confirm('¿Estás seguro de restablecer todos los datos? Se borrarán los alumnos y asistencias guardadas.')) {
+                localStorage.clear();
+                window.location.reload();
+            }
+        }
+
+        function prevMonth() {
+            calendarMonth--;
+            if (calendarMonth < 0) {
+                calendarMonth = 11;
+                calendarYear--;
+            }
+            renderApp();
+        }
+
+        function nextMonth() {
+            calendarMonth++;
+            if (calendarMonth > 11) {
+                calendarMonth = 0;
+                calendarYear++;
+            }
+            renderApp();
+        }
+
+        function currentMonth() {
+            const now = new Date();
+            calendarYear = now.getFullYear();
+            calendarMonth = now.getMonth();
+            renderApp();
+        }
+
+        function openCourseModalForCreate() {
+            document.getElementById('edit-course-index').value = '-1';
+            document.getElementById('course-modal-title').innerText = 'Crear Nuevo Curso o Grado';
+            document.getElementById('course-modal-icon').className = 'fa-solid fa-folder-plus text-sm';
+            document.getElementById('course-submit-btn').innerText = 'Guardar Curso';
+            document.getElementById('new-course-name').value = '';
+            document.getElementById('course-modal').classList.remove('hidden');
+        }
+
+        function openCourseModalForEdit(index) {
+            const courseStr = coursesData[index];
+            document.getElementById('edit-course-index').value = index;
+            document.getElementById('course-modal-title').innerText = 'Modificar Curso';
+            document.getElementById('course-modal-icon').className = 'fa-solid fa-pen-to-square text-sm';
+            document.getElementById('course-submit-btn').innerText = 'Actualizar Curso';
+            
+            const parts = courseStr.split(' - ');
+            document.getElementById('new-course-name').value = parts[0] || courseStr;
+            document.getElementById('course-modal').classList.remove('hidden');
+        }
+
+        function closeCourseModal() {
+            document.getElementById('course-modal').classList.add('hidden');
+            document.getElementById('course-form').reset();
+        }
+
+        function handleSaveCourse(e) {
+            e.preventDefault();
+            const editIndex = parseInt(document.getElementById('edit-course-index').value);
+            const name = document.getElementById('new-course-name').value.trim();
+            const grade = document.getElementById('new-course-grade').value;
+            const section = document.getElementById('new-course-section').value;
+            const fullTitle = `${name} - ${grade} ${section}`;
+
+            if (editIndex === -1) {
+                if (!coursesData.includes(fullTitle)) {
+                    coursesData.push(fullTitle);
+                    saveToLocalStorage('sg_coursesData', coursesData);
+                    alertBox(`¡Curso "${fullTitle}" creado exitosamente!`);
+                } else {
+                    alertBox('El curso ya existe en el sistema.');
+                }
+            } else {
+                const oldTitle = coursesData[editIndex];
+                coursesData[editIndex] = fullTitle;
+                studentsData.forEach(s => {
+                    if (s.course === oldTitle) s.course = fullTitle;
+                });
+                if (selectedCourse === oldTitle) selectedCourse = fullTitle;
+
+                saveToLocalStorage('sg_coursesData', coursesData);
+                saveToLocalStorage('sg_studentsData', studentsData);
+                alertBox(`¡Curso actualizado a "${fullTitle}"!`);
+            }
+
+            closeCourseModal();
+            renderApp();
+        }
+
+        function deleteCourse(index) {
+            const courseToDelete = coursesData[index];
+            if (confirm(`¿Estás seguro de eliminar el curso "${courseToDelete}"?`)) {
+                coursesData.splice(index, 1);
+                studentsData = studentsData.filter(s => s.course !== courseToDelete);
+                if (selectedCourse === courseToDelete && coursesData.length > 0) {
+                    selectedCourse = coursesData[0];
+                }
+
+                saveToLocalStorage('sg_coursesData', coursesData);
+                saveToLocalStorage('sg_studentsData', studentsData);
+
+                alertBox(`Curso "${courseToDelete}" eliminado.`);
+                loadAttendanceForCurrentSelection();
+                renderApp();
+            }
+        }
+
+        function openStudentModal() {
+            populateCourseSelects();
+            document.getElementById('student-modal').classList.remove('hidden');
+        }
+
+        function closeStudentModal() {
+            document.getElementById('student-modal').classList.add('hidden');
+            document.getElementById('student-form').reset();
+        }
+
+        function populateCourseSelects() {
+            const select = document.getElementById('new-student-course');
+            if (!select) return;
+            select.innerHTML = coursesData.map(c => `<option value="${c}" ${c===selectedCourse?'selected':''}>${c}</option>`).join('');
+        }
+
+        function handleCreateStudent(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-student-name').value.trim();
+            const course = document.getElementById('new-student-course').value;
+            let photo = document.getElementById('new-student-photo').value.trim();
+
+            if (!photo) {
+                photo = `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100`;
+            }
+
+            const newId = studentsData.length > 0 ? Math.max(...studentsData.map(s => s.id)) + 1 : 1;
+            studentsData.push({ id: newId, name, course, photo });
+
+            saveToLocalStorage('sg_studentsData', studentsData);
+
+            loadAttendanceForCurrentSelection();
+            closeStudentModal();
+            alertBox(`¡Alumno ${name} registrado con éxito!`);
+            renderApp();
+        }
+
+        function deleteStudent(id) {
+            studentsData = studentsData.filter(s => s.id !== id);
+            saveToLocalStorage('sg_studentsData', studentsData);
+
+            loadAttendanceForCurrentSelection();
+            alertBox('Estudiante eliminado.');
+            renderApp();
+        }
+
+        function setStudentStatus(id, status) {
+            const student = activeAttendanceList.find(s => s.id === id);
+            if (!student) return;
+            student.status = status;
+            renderApp();
+        }
+
+        function markAllStatus(status) {
+            activeAttendanceList.forEach(s => {
+                s.status = status;
+            });
+            alertBox(`Todos los alumnos marcados como ${status}`);
+            renderApp();
+        }
+
+        function saveAttendanceRecord() {
+            const unrated = activeAttendanceList.filter(s => s.status === null);
+            if (unrated.length > 0) {
+                if (!confirm(`Hay ${unrated.length} alumnos sin calificar. ¿Deseas guardar de todos modos?`)) {
+                    return;
+                }
+            }
+
+            const recordKey = `${attendanceDate}_${selectedCourse}`;
+            attendanceHistoryRecords[recordKey] = JSON.parse(JSON.stringify(activeAttendanceList));
+
+            saveToLocalStorage('sg_attendanceHistoryRecords', attendanceHistoryRecords);
+
+            alertBox(`¡Asistencia guardada con éxito para ${attendanceDate}!`);
+            renderApp();
+        }
+
+        function selectCourseAndTakeAttendance(course) {
+            selectedCourse = course;
+            currentSection = 'asistencia';
+            loadAttendanceForCurrentSelection();
+            renderApp();
+        }
+
+        function getStats() {
+            const total = studentsData.length;
+            let presentes = 0;
+            let ausentes = 0;
+            let tardanzas = 0;
+
+            Object.values(attendanceHistoryRecords).forEach(list => {
+                list.forEach(s => {
+                    if (s.status === 'Presente') presentes++;
+                    if (s.status === 'Ausente') ausentes++;
+                    if (s.status === 'Tardanza') tardanzas++;
+                });
+            });
+
+            if (presentes === 0 && ausentes === 0 && tardanzas === 0) {
+                presentes = Math.round(total * 0.9);
+                ausentes = Math.round(total * 0.05);
+                tardanzas = total - presentes - ausentes;
+            }
+
+            return {
+                total, presentes, ausentes, tardanzas,
+                porcentajePresentes: total > 0 ? Math.round((presentes / (presentes+ausentes+tardanzas || 1)) * 100) : 0,
+                porcentajeAusentes: total > 0 ? Math.round((ausentes / (presentes+ausentes+tardanzas || 1)) * 100) : 0,
+                porcentajeTardanzas: total > 0 ? Math.round((tardanzas / (presentes+ausentes+tardanzas || 1)) * 100) : 0
+            };
+        }
+
+        function alertBox(message) {
+            const existing = document.getElementById('custom-toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.id = 'custom-toast';
+            toast.className = 'fixed bottom-6 right-6 bg-[#0B132B] text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-3 z-50 animate-bounce text-xs font-bold border border-slate-700';
+            toast.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 text-base"></i><span>${message}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3500);
+        }
+
+        function switchSection(section) {
+            currentSection = section;
+            mobileMenuOpen = false;
+            if (section === 'asistencia') {
+                loadAttendanceForCurrentSelection();
+            }
+            renderApp();
+        }
+
+        function attachDashboardEvents() {
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const sec = item.getAttribute('data-section');
+                    switchSection(sec);
+                });
+            });
+
+            const searchInput = document.getElementById('global-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    searchQuery = e.target.value;
+                    if (currentSection !== 'asistencia' && currentSection !== 'inicio') {
+                        currentSection = 'asistencia';
+                        loadAttendanceForCurrentSelection();
+                    }
+                    renderApp();
+                    setTimeout(() => {
+                        const input = document.getElementById('global-search');
+                        if(input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+                    }, 10);
+                });
+            }
+        }
+
+        window.onload = function() {
+            loadAttendanceForCurrentSelection();
+            renderApp();
+        };
+    </script>
+</body>
+</html>
